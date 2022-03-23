@@ -1,10 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
 )
+
+func GetInput() (string, error) {
+	reader := bufio.NewReader(os.Stdin)
+	return reader.ReadString('\n')
+}
 
 func PrintSlice(slice []string) {
 	for _, str := range slice {
