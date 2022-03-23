@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -51,22 +52,22 @@ func ComparePackages(installed []string, ansible []string, ignored []string) []s
 }
 
 // Add to slice, inclusive range
-func AppendRange(indxs []int, start int, end int) []int {
+func AppendRange(indxs *[]int, start int, end int) {
 	for i := start; i <= end; i++ {
-		indxs = append(indxs, i)
+		*indxs = append(*indxs, i)
 	}
-	return indxs
 }
 
-func ParseRange(indxs []int, s string) ([]int, error) {
+func ParseRange(indxs *[]int, s string) error {
 	values := strings.Split(s, "-")
 	switch len(values) {
 	case 1:
 		str := strings.TrimSpace(values[0])
 		if val, err := strconv.Atoi(str); err != nil {
-			return indxs, err
+			return err
 		} else {
-			return append(indxs, val), nil
+			*indxs = append(*indxs, val)
+			return nil
 		}
 	case 2:
 		s1 := strings.TrimSpace(values[0])
@@ -74,22 +75,26 @@ func ParseRange(indxs []int, s string) ([]int, error) {
 		v1, e1 := strconv.Atoi(s1)
 		v2, e2 := strconv.Atoi(s2)
 		if e1 != nil && e2 != nil && v1 <= v2 {
-			return indxs, errors.New("input: unable to parse range")
+			return errors.New("input: unable to parse range")
 		} else {
-			return AppendRange(indxs, v1, v2), nil
+			AppendRange(indxs, v1, v2)
+			return nil
 		}
 	}
-	return indxs, nil
+	return nil
 }
 
 func ReadIndexes() []int {
-	var input string
-	fmt.Scanf("%s", input)
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Println("Error parsing input range.")
+		panic(err)
+	}
 	input = strings.TrimSpace(input)
 	indexes := make([]int, 0)
 	for _, s := range strings.Split(input, ",") {
-		var err error
-		indexes, err = ParseRange(indexes, s)
+		err := ParseRange(&indexes, s)
 		if err != nil {
 			fmt.Println("Error parsing input range.")
 			panic(err)
@@ -98,7 +103,7 @@ func ReadIndexes() []int {
 	return indexes
 }
 
-func SyncPacmanPackages() {
+func GeneratePacmanList() []string {
 	ansChan := make(chan []string)
 	insChan := make(chan []string)
 	ignChan := make(chan []string)
@@ -137,9 +142,27 @@ func SyncPacmanPackages() {
 	ansiblePkgs := <-ansChan
 	installedPkgs := <-insChan
 	ignoredPkgs := <-ignChan
-	PrintPackageList(ComparePackages(installedPkgs, ansiblePkgs, ignoredPkgs))
+	return ComparePackages(installedPkgs, ansiblePkgs, ignoredPkgs)
+}
+
+func SelectPackages(pkgs []string, indexes []int) []string {
+	res := make([]string, 0)
+	for _, i := range indexes {
+		res = append(res, pkgs[i])
+	}
+	return res
+}
+
+func SyncPacmanPackages() {
+	pkgs := GeneratePacmanList()
+	PrintPackageList(pkgs)
+	indxs := ReadIndexes()
+	PrintIntSlice(indxs)
+	pkgs = SelectPackages(pkgs, indxs)
+	PrintPackageList(pkgs)
+
 }
 
 func main() {
-	fmt.Println(ParseRange(make([]int, 0), "1-5"))
+	SyncPacmanPackages()
 }

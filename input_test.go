@@ -16,13 +16,15 @@ func runRangeTest(t *testing.T, exp []int, actual []int) {
 func TestComplex(t *testing.T) {
 
 	exp := []int{1, 2, 3, 4, 5}
-	actual := AppendRange(make([]int, 0), 1, 5)
+	actual := make([]int, 0)
+	AppendRange(&actual, 1, 5)
 	runRangeTest(t, exp, actual)
 }
 
 func TestRange1(t *testing.T) {
 	exp := []int{1, 2, 3, 4, 5}
-	actual, err := ParseRange(make([]int, 0), "1-5")
+	actual := make([]int, 0)
+	err := ParseRange(&actual, "1-5")
 	if err != nil {
 		t.Errorf("Encountered error while parsing range.\n%s", err)
 	}
@@ -31,7 +33,8 @@ func TestRange1(t *testing.T) {
 
 func TestRange2(t *testing.T) {
 	exp := []int{9, 10, 11}
-	actual, err := ParseRange(make([]int, 0), "9- 11")
+	actual := make([]int, 0)
+	err := ParseRange(&actual, "9- 11")
 	if err != nil {
 		t.Errorf("Encountered error while parsing range.\n%s", err)
 	}
@@ -40,7 +43,8 @@ func TestRange2(t *testing.T) {
 
 func TestRange3(t *testing.T) {
 	exp := []int{7}
-	actual, err := ParseRange(make([]int, 0), "7 - 7")
+	actual := make([]int, 0)
+	err := ParseRange(&actual, "7 - 7")
 	if err != nil {
 		t.Errorf("Encountered error while parsing range.\n%s", err)
 	}

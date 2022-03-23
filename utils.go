@@ -11,6 +11,11 @@ func PrintSlice(slice []string) {
 		fmt.Println(str)
 	}
 }
+func PrintIntSlice(slice []int) {
+	for _, i := range slice {
+		fmt.Println(i)
+	}
+}
 
 func PrintPackageList(pkgs []string) {
 	for i, pkg := range pkgs {
