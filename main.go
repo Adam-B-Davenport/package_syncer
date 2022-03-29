@@ -1,12 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -44,39 +42,6 @@ func ComparePackages(installed []string, ansible []string, ignored []string) []s
 	return res
 }
 
-// Add to slice, inclusive range
-func AppendRange(indxs *[]int, start int, end int) {
-	for i := start; i <= end; i++ {
-		*indxs = append(*indxs, i)
-	}
-}
-
-func ParseRange(indxs *[]int, s string) error {
-	values := strings.Split(s, "-")
-	switch len(values) {
-	case 1:
-		str := strings.TrimSpace(values[0])
-		if val, err := strconv.Atoi(str); err != nil {
-			return err
-		} else {
-			*indxs = append(*indxs, val)
-			return nil
-		}
-	case 2:
-		s1 := strings.TrimSpace(values[0])
-		s2 := strings.TrimSpace(values[1])
-		v1, e1 := strconv.Atoi(s1)
-		v2, e2 := strconv.Atoi(s2)
-		if e1 != nil && e2 != nil && v1 <= v2 {
-			return errors.New("input: unable to parse range")
-		} else {
-			AppendRange(indxs, v1, v2)
-			return nil
-		}
-	}
-	return nil
-}
-
 func ReadIndexes() []int {
 	input, err := GetInput()
 	if err != nil {
@@ -100,9 +65,6 @@ func GeneratePacmanList(pkgListPath string) []string {
 	insChan := make(chan []string)
 	ignChan := make(chan []string)
 
-	cwd, _ := os.Getwd()
-	ignoredPath := path.Join(cwd, "ignored.txt")
-
 	go func() {
 		pkgs, err := ReadAnsibleList(pkgListPath)
 		if err != nil {
@@ -120,7 +82,8 @@ func GeneratePacmanList(pkgListPath string) []string {
 		insChan <- pkgs
 	}()
 	go func() {
-		if _, err := os.Stat(ignoredPath); os.IsExist(err) {
+		ignoredPath := IgnoredPath()
+		if _, err := os.Stat(ignoredPath); !os.IsNotExist(err) {
 			pkgs, err := ReadTextList(ignoredPath)
 			if err != nil {
 				fmt.Println("Error reading ignored package list.")
@@ -145,20 +108,16 @@ func SelectPackages(pkgs []string, indexes []int) []string {
 	return res
 }
 
-func SyncPacmanPackages() {
-	home, _ := os.UserHomeDir()
-	pkgListPath := path.Join(home, "dev", "ansible-setup", "arch", "packages.yml")
-
-	pkgs := GeneratePacmanList(pkgListPath)
+func PromptAdd(pkgs []string, target string) []string {
 	PrintPackageList(pkgs)
-	fmt.Println("Select packages to add to package list. (eg. 1,2,5-7)")
+	fmt.Printf("Select packages to add to %s. (eg. 1,2,5-7)\n", target)
 	indxs := ReadIndexes()
-	pkgs = SelectPackages(pkgs, indxs)
-	fmt.Println("================================================")
-	fmt.Println("The following packages will be added to ansible:")
-	fmt.Println("================================================")
-	PrintSlice(pkgs)
-	fmt.Println("================================================")
+	toAdd := SelectPackages(pkgs, indxs)
+	fmt.Println("===================================================")
+	fmt.Printf("The following packages will be added to %s:\n", target)
+	fmt.Println("===================================================")
+	PrintStringSlice(toAdd)
+	fmt.Println("===================================================")
 	fmt.Println("Continue? (y,N)")
 	input, err := GetInput()
 	if err != nil {
@@ -166,16 +125,17 @@ func SyncPacmanPackages() {
 		panic(err)
 	}
 	if strings.TrimSpace(strings.ToLower(input)) == "y" {
-		fmt.Println("yes")
-		AddPackagesYml(pkgs, pkgListPath)
+		return toAdd
+	} else {
+		return nil
 	}
 }
 
 // Add packages to the input yml file
-func AddPackagesYml(pkgs []string, filePath string) {
+func AddPackagesYml(pkgs []string, ymlPath string) {
 
 	// open output file
-	fo, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0600)
+	fo, err := os.OpenFile(ymlPath, os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		panic(err)
 	}
@@ -192,6 +152,17 @@ func AddPackagesYml(pkgs []string, filePath string) {
 
 }
 
+func SyncPacmanPackages(pkgListPath string) {
+	pkgs := GeneratePacmanList(pkgListPath)
+	pkgsToAdd := PromptAdd(pkgs, "Ansible List")
+	if pkgsToAdd != nil {
+		AddPackagesYml(pkgsToAdd, pkgListPath)
+	}
+}
+
 func main() {
-	SyncPacmanPackages()
+	home, _ := os.UserHomeDir()
+	pkgListPath := path.Join(home, "dev", "ansible-setup", "arch", "packages.yml")
+	SyncPacmanPackages(pkgListPath)
+	CheckIgnored(pkgListPath)
 }
